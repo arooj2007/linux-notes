@@ -1,0 +1,558 @@
+/icf
+/Linux-notes 
+
+============ Server Build ============
+> su -		(switch user)
+> vim /etc/sysconfig/network-scripts/ifcfg-enp0s3	(path to network config file)
+> systemctl restart network (to restart network)
+BOOTPROTO=static
+ONBOOT=yes 
+IPADDR=192.168.1.102
+NETMASK=255.255.255.0
+GATEWAY=192.168.1.1
+DNS=192.168.1.1
+DNS1=8.8.8.8
+
+
+
+============ work around ============
+> ls 
+> history 
+> hostnamectl set-hostname vm101 (to change hostname)
+> hostname -I  (to check IP adress)
+> shutdown , init 0 
+> reboot  , init 6, shutdown -r 
+> ll (to check long list)
+> ls (to check the list)
+> mkdir (to create the directory)
+> cd (to go insde the directory) 
+> cd .. (to go back one directory) 
+> pwd (present/ print working directory)
+> touch (to create a file)
+> cat (to read the file)
+> vim (to edit a file)
+> rmdir (to delete or to remove a empty directory)
+> rm -rf (to delete non empty directory) 
+> wc (to count the words and letters) 
+> wc -l (it will also count the number of lines)
+> chown (to change the owner)  chown -R arooj:arooj john-work
+> chgrp (to change the group)
+> diff (to see the diference)
+> echo $? (to show the status of the previous command) 
+> echo "hello" >> file name (it will apend)
+> echo "hello" > file name (it will overwrite) 
+> yum -y install (any package) 
+> mkdir -p (directory path) 
+> tree (will give you a tree digram)y
+>chmod (to change the permissons)
+> cp (to copy a file)
+> mv (to move a file/ rename it)
+> alias (to make a shortcut to any commands) 
+> ps (to display the list of processes that are currently running) 
+> who (tells you the current logged in user)
+> whoami (shows the current user)
+> uname -n (hostname) -r (kernel relase) -v (kernel virsion) -a (all the information) 
+> uptime (the first thing it tells you about the user, load avreage, how long the server has been running) 
+> man (display the user, manual of any command) 
+> ping (used to trouble shoot conectivity) 
+>scp (file name, root@192.168.1.102:/tmp)
+> rsync (file name, root@192.168.1.102:/tmp)
+> yum -y update kernel 
+>ln -s (ln -s /var/log/messages messages) to create a link
+
+
+
+============ vim ============
+escape mode 
+insert mode 
+wq	(save and quit)
+yy (to copy a line)
+p(to paste) 
+shit G ( to go to the bottom)
+GG (to go to the top)
+DD (to delete a line)
+
+
+
+============ user mangment ============
+> useradd (to create a user) 
+> passwd user name (to assign a password to a user) 
+> userdel user name (to delete user) 
+/etc/passwd (all user info) 
+
+
+============ Server Build ============
+
+
+
+
+
+
+
+
+
+
+------------client configuration------------
+> nfs-utils package 
+> showmount -e 192.168.1.197 (nas server)
+> mkdir /nfsshare 
+> vim /etc/fstab 
+192.168.1.196: /nffshare /nfsshare nfs defaults 0 0 
+> mount /nff
+
+
+
+-------------nfs server configration playbook----------------
+
+> ---
+  - name: nfs-server playbook
+    hosts: all
+    tasks:
+    - name: install a package
+      yum:
+        name: nfs-utils
+        state: latest
+    - name: start service
+      service:
+        name: nfs-server
+        state: started
+        enabled: yes
+    - name: adding port
+      firewalld:
+        port: 2049/tcp
+        permanent: yes
+        immediate: yes
+        state: enabled
+    - name: adding port
+      firewalld:
+        port: 2049/udp
+        permanent: yes
+        immediate: yes
+        state: enabled
+    - name: adding port
+      firewalld:
+        port: 111/tcp
+        permanent: yes
+        immediate: yes
+        state: enabled
+ - name: adding port
+      firewalld:
+        port: 111/udp
+        permanent: yes
+        immediate: yes
+        state: enabled
+    - name: adding service
+      firewalld:
+        service: mountd
+        permanent: yes
+        immediate: yes
+        state: enabled
+    - name: creatingg directory
+      file:
+        path: /dir2
+        state: directory
+    - name: adding a line in a file
+      lineinfile:
+        path: /etc/exports
+        line: '/dir2 192.168.1.109(rw,sync,no_root_squash)'
+
+
+
+
+--------------nfs client configration--------------------
+
+> ---
+  - name: nfs client playbook
+    hosts: all
+    tasks:
+    - name: creatingg directory
+      file:
+        path: /dir4
+        state: directory
+    - name: make it boot persisannt
+      mount:
+        path: /dir4
+        src: 192.168.1.106:/dir2
+        fstype: nfs
+        state: mounted
+
+
+
+
+
+------------------- lvm playbook--------------------
+> go to cd /all-yml 
+> vim lvm-server.yml
+>---
+  - name: lvm playbook
+    hosts: all
+    tasks:
+    - name: create vg
+      lvg:
+        vg: vg2
+        pvs: /dev/sde
+    - name: create lv
+      lvol:
+        vg: vg2
+        lv: lv2
+        size: 1G
+    - name: make a file system
+      filesystem:
+         fstype: xfs
+         dev: /dev/vg2/lv2
+    - name: creatingg directory
+      file:
+        path: /dir6
+        state: directory
+    - name: mounting directory
+      mount:
+        path: /dir6
+        src: /dev/vg2/lv2
+        fstype: xfs
+        state: mounted
+
+
+
+---------------- lv extend playbook------------------------
+
+
+>---
+  - name: lvextend playbook
+    hosts: all
+    tasks:
+    - name: extending vg
+      lvg:
+        vg: vg2
+        pvs: /dev/sde,/dev/sdf
+    - name: extending lv
+      lvol:
+        vg: vg2
+        lv: lv2
+        size: +100%FREE
+    - name: resize file system
+      filesystem:
+        fstype: xfs
+        dev: /dev/vg2/lv2
+        resizefs: yes
+ssh-keygen
+
+
+
+
+-------------------- nfs -------------------------------
+
+yum -y install nfs-utils
+> yum -y install rpcbind
+> systemctl start nfs
+> systemctl status nfs
+> systemctl enable nfs
+> firewall -cmd --list-all
+> firewall -cmd --permanent --add-port=2049/tcp
+> firewall -cmd --permanent --add-port=2049/udp
+> firewall -cmd --permanent --add-port=111/udp
+> firewall -cmd --permanent --add-port=111/tcp
+> firewall -cmd --permanent --add-service=mountd
+> firewall -cmd --reload
+> vim /etc/exports  (entry )
+> /directory name ip -name(rw,sync,no_root_squash
+> exportfs -a
+ now go to clint-vm and 
+> showmount -e ip edress of host-vm
+> mkdir /directory-name
+> vim /etc/fstab
+> type ip adress:/directory of one vm and then press tab and /directory of 2nd vm press tab nfs tab defaults and save and quit
+> mount /given directory
+> df -h directory -name
+> cd /given directorty of vm
+> touch file.txt
+> again go to another vm which we share and check file
+
+
+
+
+-------------------------------------ansible-------------------------------------------------
+ yum -y install ansible
+          vim /etc/ansible-hosts
+   vim /etc/ansible/hosts
+   ssh 192.168.1.109
+  ssh-keygen
+   ssh
+   ssh 192.168.1.109
+   vim /etc/ansible/hosts
+  ansible all -m yum -a "name=git state=present"
+   ssh 192.168.1.109
+   ssh-copy-id 192.168.1.104
+   exit
+   ssh 192.168.1.109
+    ssh 192.168.1.104
+    ansible all -m yum -a "name=git state=present"
+    ll
+   touch file1
+   ll
+  ansible all -m copy -a "src=file1 dest=/root"
+ansible it -m file -a "path=tmp/file name state =absent"
+
+magoule list:
+copy 
+yum 
+service 
+line in file
+ping 
+file
+shell
+user
+packages
+git
+
+›ansible 
+›cd ansible 
+›cd /etc/ansible 
+> 11 
+> vim hosts cd 
+> ansible it -m ping ssh 192.168.1.201 
+> ssh-copy-id ssh-copy-id 192.168.1.202 
+＞ ssh 192.168.1.201 ssh-copy-id 192.168.1.201 
+> ssh 192.168.1.201 
+› ansible it -m ping 
+› ansible it -m file -a "path=/tmp/ffilel state=touch"* ansible-doc (to check the manual pages of ansible; /EXA) -----------modules---• 
+› ansible it(it is a filename) -m ping 
+› ansible it -m file -a "path=/tmp/ffilel state=touch* 
+> ansible it -m shell -a "shutdown now" ansible it -m copy 
+> ansible it -m service ansible it -m lineinfile 
+› ansible it -m user 
+› ansible it -m yum idompotent
+
+
+
+===ニ==ssh=ニコニコニニニ > ssh-keygen › ssh-copy-id ipaddress of the server which you want to access > ssh ipaddress › cd •ssh (all dir starting with • are hidden dir)
+
+
+
+-----------------------------kickstart-----------------------------------
+
+
+Q- What is kickstart in Linux ? A kickstart file is a simple text file that contains configuration information for a Red Hat Enterprise Linux installation. The system reads this configuration information at boot time and carries out the installation process without any further input from you.
+ › yum -y install pykickstart  
+>yum -y install httpd 
+＞ systemctl enable httpd --now (start and enable the httpd) 
+> firewall-cmd --add-service=http --permanent 
+› firewall-cmd --add-service=https --permanent 
+› firewall-cmd --reload 
+› setenforce 0 (to make permissive 1=enforcing and 0=permissive) 
+> getenforce 1 (to change the mode) 
+> cp anaconda.ks.cfg (newname) 
+› mv ks.cfg /var/www/html/ 
+> cd /var/www/html 
+> chmod 644 ks.cfg 
+› ksvalidator ks.cfg 
+
+
+> vim ks. cfg # Network information network --bootproto=static --device=enps3 --onboot=on --ipv6=auto --no-activate --ip-192.168.1.102 --netmask=255.255.255.0 --gateway=192. 168.1.1 -- nameserver=192.168.1.1 network --hostname=vm102
+
+
+
+
+-----------------------link------------------------------
+
+
+ > In -s (path of the file space then link name) 
+> unlink link name (to unlink) 
+> In (to make a link of the file a replica)
+
+
+
+
+
+
+
+---------------------------tar----------------------------------------
+
+ › tar -evzxf my.tar files name (x=extract, c=create, z=zip, v=verbose) 
+› tar -cf tarfilename.tar ‹file names› (to create tar file) 
+> tar -cjvf tarfilename.tar ‹dir name> (to freate tar file with very low size) tar -tf tarfilename.tar (to check the list of files inside tar file) 
+› tar -xf tarfilename.tar (to extract the tar file) scp ‹ file name> ‹ip of other server> (to transfer file to other server through scp) 
+> rsync ‹file name> «ip of other server› (to transfer file to other server through sync)
+
+
+
+
+
+
+
+
+
+-----------------------Network File System ----------------------------
+
+
+（nfs）=== host configuration: 
+›rpm -qa nfs-utils 
+>systemctl status nfs-server 
+›mkdir /filename 
+>11 / 
+›vim /etc/exports 
+›firewall-cmd --permanent --add-port=2049/tcp 
+›firewall-cd --permanent --add-port=2049/udp 
+›firewall-cmd --permanent --add-port=111/tcp 
+›firewall-cmd --permanent --add-port=111/udp 
+›firewall-cmd --permanent --add-service=mourta 
+›firewall-cmd --permanent --add-service=rpc-bind 
+›firewall-cmd --reload ›exportfs -a 
+
+client configuration: ›showmount -e 192.168.1.201 ›mkdir /nfs-test2 ›vim /etc/fstab ›systemctl daemon-reload ›mount /nfs-test2/ ›cd /nfs-test2/ ›touch firstfile
+
+
+
+
+
+
+------------------------git-----------------
+> ssh-keygen 
+› cd • ssh 
+> 11 
+› cat id_rsa-pub 
+> cd git clone git@github.com:umairnisar78/filel.git 11 cd filel/ 11 git config --global user.email "qurataine58@gmail.com" →A git config --global user.name "arooj2007" 
+>vim file2 git add 
+> git commit -m "test" 
+> git push 
+> cat file2 
+> git pull git branch -rv (to list all branches)
+
+
+
+
+
+------------------permissions--------------
+r=4 W=2 x=1 (7 for all 3 permissions) 
+> chmod echo $? (to change the permissions) echo 13 00 (to check the recent command executed correctly or not) filename 
+> echo > filename (>› sign will append) (> overwrite) init o (to shutdown) 
+› init 6 (reboot) 
+> scp (file name root@ipaddress where to copy:/tmp) 
+› rsync (file name root@ipaddress where to copy:/tmp) 
+> grep "string" file name re to copy / ap) 
+> grep -i "string" file name (i=case senstivaity) 
+› grep -v "string" file name (v means except that string) 
+› crontab -e *(min) *(hrs) *(date) *(month) *(week day) 
+> crontab -1 (to see the schedule) > crontab -r (to cancel the schedule) 
+> crontab -e -u user name (to set task for local user) 
+› crontab -e (***** df -h › /tmp/file name) (type command name which need to be run) (with 
+› cat /etc/passwd) if you see user id starting with 1000 it means you have created it and if you see id starting with 0-999 it means sys created itself
+
+
+
+
+---------------ansible playbook--------------------
+> what is a playbook? multiple tasks you are running at the same time that is a playbook, yml is a ymall language 
+> cd all-yaml/
+> vim nfs_server.yml
+> - name: nfs-server 
+    hosts: all
+    tasks:
+       - name: installing nfs server 
+         yum:
+           name: nfs-utils 
+           state: latest 
+         - name: startingg service
+           service:
+           name: nfs-server 
+           state: started 
+> ansible-playbook it nfs_server.yml --syntax 
+> ansible-playbook -i server-list nfs_server.yml --syntax 
+>ansible-playbook -i server-list nfs_server.yml -C means dry run means don't appalment it 
+
+          
+
+--- mean the vim editor the file editor whatever i write in it will be yml it's a sign from them 
+>indentation- proper spacing 
+> dry run means just run it don't appalment it just show it, check it if its right
+
+
+lineinfile 
+file 
+shell - to export 
+
+
+
+
+
+------------------ raid level------------------------
+
+>what is raid level? redundant array of independent disks, bm bare matter which is physical server 
+
+>raid is a setup consisting of multiple disks for data storage they are linked together to prevent data loss and/or speed up performance. having multiple disks allows the employment of various disks,
+
+
+>fault tolerance, to a system ability to continue functioning properly in the presence of hardware or software failures. In Linux fault tolerance can be achieved through various techniques such has redundancy, error correction and failover mechanisms. 
+
+>redundancy, involves having multiple components in a system that can perform the same function, ensuring that if one component fails, the system can still operate using the redundant components, ( every redundant components means that there are two of everything in every server just in case anything fails)
+
+>strip- half-half, in raid 0 system data are split into blocks that get written across all the drives in the array. I/O = in out performance
+ 
+>raid 1 what is mirroring? data are stored twice by writing them to both the data drive (or set of data drives) , you need two disk for this to work 
+
+                                                             
+>stripping with parity, is a data storage technique that distributes information multiple hard drives in a way that allows the data to be reconstructed if one of the drive fails, parity will have data 
+
+
+
+------------------nic bonding--------------------------
+>What is nic bonding? allows multiple network cards to work together as a single entity improving the overall reliability and performance of the network by bonding network interfaces network administrations can increase the bandwidth available to network devices and provide redundancy to ensure that the network remains available even if the other one interface fails 
+nic teaming 
+channel bonding
+
+In vcenter using add network adapter add a new network card.
+Generate a uid for the new card by using uuidgen ens224
+cp /etc/sysconfig/network-scripts/ifcfg-ens192 /etc/sysconfig/network-scripts/ifcfg-ens224
+edit the file with the new values
+uuidgen ens224
+systemctl restart network  (RHEL7)
+systemctl restart NetworkManager    (RHEL8)
+
+nmcli connection add type team con-name team0 ifname team0 ipv4.addresses 192.168.1.103/24 ipv4.gateway 192.168.1.1 ipv4.dns 192.168.1.1 ipv4.method manual autoconnect yes config '{"runner":{"name": "activebackup"}}'
+
+nmcli connection add type team-slave con-name con1 ifname ens192 master team0
+nmcli connection add type team-slave con-name con2 ifname ens224 master team0
+nmcli connection up team0    (RHEL)
+nmcli device up team0        (RHEL8)
+nmcli connection up ens224   (RHEL7)
+nmcli device up ens224        (RHEL8)
+
+man teamd.conf
+teamdctl team0 state
+
+
+----------------docker-------------------
+ df -h
+   lsblk
+   vgcreate /dev/sdb
+    pvcreate /dev/sdb
+   lsblk
+    pvcreate /dev/sdc
+   vgextend rl /dev/sdc
+   lvextend -l +100%FREE /dev/rl/var -r
+    df -h
+   sudo yum remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine podman runc
+   yum install -y yum-utils
+   sudo yum-config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+   sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin --allowerasing
+  systemctl start docker
+  docker run hello-world
+   systemctl status docker
+  systemctl enable docker
+   yum -y remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine podman runc
+   yum install -y yum-utils
+   yum-config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+  yum -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+   systemctl start docker && sudo systemctl enable docker
+   docker ps
+   docker pull httpd
+   docker pull mysql
+   docker images
+    docker ps
+   docker run -dit --restart always -p8080:80 --name linuxdmz-web -v /tmp/webpg:/usr/local/apache2/htdocs httpd
+   docker ps
+    docker exec -it 89ba1b712452 /bin/bash
+   cd /tmp/webpg
+   vim index.html
+
+http://192.168.1.104:8080/
